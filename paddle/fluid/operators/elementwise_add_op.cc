@@ -14,8 +14,10 @@ limitations under the License. */
 
 #include "paddle/fluid/operators/elementwise_add_op.h"
 #include "paddle/fluid/operators/elementwise_op.h"
+
 namespace ops = paddle::operators;
 REGISTER_ELEMWISE_OP(elementwise_add, "Add", "Out = X + Y");
+
 REGISTER_OP_CPU_KERNEL(
     elementwise_add,
     ops::ElementwiseAddKernel<paddle::platform::CPUDeviceContext, float>,
@@ -26,5 +28,5 @@ REGISTER_OP_CPU_KERNEL(
     elementwise_add_grad,
     ops::ElementwiseAddGradKernel<paddle::platform::CPUDeviceContext, float>,
     ops::ElementwiseAddGradKernel<paddle::platform::CPUDeviceContext, double>,
-    ops::ElementwiseAddGradKernel<paddle::platform::CPUDeviceContext, int>,
-    ops::ElementwiseAddGradKernel<paddle::platform::CPUDeviceContext, int64_t>);
+  ops::ElementwiseAddGradKernel<paddle::platform::CPUDeviceContext, int>,
+  ops::ElementwiseAddGradKernel<paddle::platform::CPUDeviceContext, int64_t>);

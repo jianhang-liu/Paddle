@@ -71,12 +71,16 @@ class ElementwiseAddKernel : public framework::OpKernel<T> {
     auto z = ctx.Output<Tensor>("Out");
     z->mutable_data<T>(ctx.GetPlace());
 
-    auto dims_equal = x->dims() == y->dims();
-    if (dims_equal) {
-      elementwise_add<DeviceContext, T>(ctx, x, y, z);
-    } else {
-      default_elementwise_add<DeviceContext, T>(ctx, x, y, z);
+    int axis = ctx.Attr<int>("axis");
+    auto x_dims = x->dims();
+    auto y_dims = y->dims();
+    if (x_dims.size() != y_dims.size()) {
+      PADDLE_ENFORCE(x_dims.size() == y_dims.size(),
+                     "dims(x) != dims(y)");
+      return;
     }
+    ElementwiseComputeEx<AddFunctor<T>, DeviceContext, T>(ctx, x, y, axis,
+                                                          AddFunctor<T>(), z);
   }
 };
 
@@ -147,12 +151,27 @@ class ElementwiseAddGradKernel : public framework::OpKernel<T> {
     auto* dx = ctx.Output<Tensor>(framework::GradVarName("X"));
     auto* dy = ctx.Output<Tensor>(framework::GradVarName("Y"));
 
-    if (platform::is_cpu_place(ctx.GetPlace()) && (x->dims() == y->dims())) {
-      elementwise_add_grad<DeviceContext, T>(ctx, x, y, out, dout, dx, dy);
-    } else {
-      default_elementwise_add_grad<DeviceContext, T>(ctx, x, y, out, dout, dx,
-                                                     dy);
-    }
+    int axis = ctx.Attr<int>("axis");
+    ElemwiseGradCompute<DeviceContext, T, IdentityGrad<T>, IdentityGrad<T>>(
+        ctx, *x, *y, *out, *dout, axis, dx, dy, IdentityGrad<T>(),
+        IdentityGrad<T>());
+//    if (platform::is_cpu_place(ctx.GetPlace()) && (x->dims() == y->dims())) {
+//      auto blas = math::GetBlas<DeviceContext, T>(ctx);
+//
+//      if (dx) {
+//        blas.VCOPY(dout->numel(), dout->data<T>(),
+//                   dx->mutable_data<T>(ctx.GetPlace()));
+//      }
+//
+//      if (dy) {
+//        blas.VCOPY(dout->numel(), dout->data<T>(),
+//                   dy->mutable_data<T>(ctx.GetPlace()));
+//      }
+//    } else {
+//      ElemwiseGradCompute<DeviceContext, T, IdentityGrad<T>, IdentityGrad<T>>(
+//              ctx, *x, *y, *out, *dout, axis, dx, dy, IdentityGrad<T>(),
+//              IdentityGrad<T>());
+//    }
   }
 };
 

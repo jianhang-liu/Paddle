@@ -16,6 +16,9 @@ limitations under the License. */
 #include <string>
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/operator.h"
+#ifdef PADDLE_WITH_MKLDNN
+#include "paddle/fluid/platform/mkldnn_helper.h"
+#endif
 
 namespace paddle {
 namespace operators {
@@ -40,6 +43,24 @@ class ElementwiseOp : public framework::OperatorWithKernel {
     ctx->SetOutputDim("Out", x_dim);
     ctx->ShareLoD("X", /*->*/ "Out");
   }
+
+protected:
+    framework::OpKernelType GetExpectedKernelType(
+            const framework::ExecutionContext& ctx) const override {
+#ifdef PADDLE_WITH_MKLDNN
+      if (true) {  // Fix me: uncomment below instead
+    //    if (platform::CanMKLDNNBeUsed(ctx)) {
+      auto library_ = framework::LibraryType::kMKLDNN;
+      auto layout_ = framework::DataLayout::kMKLDNN;
+      return framework::OpKernelType(
+         framework::ToDataType(ctx.Input<Tensor>("X")->type()),
+         ctx.GetPlace(),
+         layout_, library_);
+    }
+#endif
+
+      return OperatorWithKernel::GetExpectedKernelType(ctx);
+    }
 };
 
 class ElementwiseOpInferVarType : public framework::VarTypeInference {
@@ -137,6 +158,24 @@ class ElementwiseOpGrad : public framework::OperatorWithKernel {
       ctx->SetOutputDim(y_grad_name, y_dims);
     }
   }
+
+protected:
+    framework::OpKernelType GetExpectedKernelType(
+            const framework::ExecutionContext& ctx) const override {
+#ifdef PADDLE_WITH_MKLDNN
+      if (true) { // Fix me: uncomment below instead
+    // if (platform::CanMKLDNNBeUsed(ctx)) {
+      auto library_ = framework::LibraryType::kMKLDNN;
+      auto layout_ = framework::DataLayout::kMKLDNN;
+      return framework::OpKernelType(
+         framework::ToDataType(ctx.Input<Tensor>("X")->type()),
+         ctx.GetPlace(),
+         layout_, library_);
+    }
+#endif
+
+      return OperatorWithKernel::GetExpectedKernelType(ctx);
+    }
 };
 }  // namespace operators
 }  // namespace paddle
