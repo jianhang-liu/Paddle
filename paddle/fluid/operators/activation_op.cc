@@ -19,6 +19,8 @@ limitations under the License. */
 namespace paddle {
 namespace operators {
 
+using paddle::framework::Tensor;
+
 #define REGISTER_ACTIVATION_OP_MAKER(OP_NAME, OP_COMMENT)               \
   class OP_NAME##OpMaker                                                \
       : public ::paddle::framework::OpProtoAndCheckerMaker {            \
@@ -58,15 +60,12 @@ framework::OpKernelType GetKernelType(const framework::ExecutionContext& ctx,
                                       const framework::OperatorWithKernel& oper,
                                       const std::string& name) {
   framework::LibraryType library{framework::LibraryType::kPlain};
+  framework::DataLayout layout{framework::DataLayout::kAnyLayout};
 
-  framework::DataLayout layout = framework::DataLayout::kAnyLayout;
+// TODO(@mozga-intel) Add the global mkldnn flag
 #ifdef PADDLE_WITH_MKLDNN
-  auto it = oper.Attrs().find("use_mkldnn");
-  if (library == framework::LibraryType::kPlain && it != oper.Attrs().end() &&
-      platform::CanMKLDNNBeUsed(ctx)) {
-    library = framework::LibraryType::kMKLDNN;
-    layout = framework::DataLayout::kMKLDNN;
-  }
+  library = framework::LibraryType::kMKLDNN;
+  layout = framework::DataLayout::kMKLDNN;
 #endif
   return framework::OpKernelType(
       framework::ToDataType(ctx.Input<framework::Tensor>(name)->type()),
@@ -82,9 +81,20 @@ class ActivationOp : public framework::OperatorWithKernel {
     ctx->ShareLoD("X", /*->*/ "Out");
   }
 
+ protected:
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext& ctx) const override {
-    return GetKernelType(ctx, *this, "X");
+    framework::LibraryType library = framework::LibraryType::kPlain;
+    framework::DataLayout layout = framework::DataLayout::kAnyLayout;
+
+// TODO(@mozga-intel) Add the global mkldnn flag
+#ifdef PADDLE_WITH_MKLDNN
+    library = framework::LibraryType::kMKLDNN;
+    layout = framework::DataLayout::kMKLDNN;
+#endif
+    return framework::OpKernelType(
+        framework::ToDataType(ctx.Input<Tensor>("X")->type()), ctx.GetPlace(),
+        layout, library);
   }
 };
 
@@ -96,9 +106,20 @@ class ActivationOpGrad : public framework::OperatorWithKernel {
     ctx->SetOutputDim(framework::GradVarName("X"), ctx->GetInputDim("Out"));
   }
 
+ protected:
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext& ctx) const override {
-    return GetKernelType(ctx, *this, "Out");
+    framework::LibraryType library = framework::LibraryType::kPlain;
+    framework::DataLayout layout = framework::DataLayout::kAnyLayout;
+
+// TODO(@mozga-intel) Add the global mkldnn flag
+#ifdef PADDLE_WITH_MKLDNN
+    library = framework::LibraryType::kMKLDNN;
+    layout = framework::DataLayout::kMKLDNN;
+#endif
+    return framework::OpKernelType(
+        framework::ToDataType(ctx.Input<Tensor>("Out")->type()), ctx.GetPlace(),
+        layout, library);
   }
 };
 
