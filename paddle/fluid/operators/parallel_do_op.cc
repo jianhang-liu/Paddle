@@ -19,6 +19,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/threadpool.h"
 #include "paddle/fluid/operators/detail/safe_ref.h"
 #include "paddle/fluid/platform/profiler.h"
+#include "paddle/fluid/platform/device_context.h"
 
 namespace paddle {
 namespace operators {
@@ -169,6 +170,7 @@ class ParallelDoOp : public framework::OperatorBase {
             // Give the thread an id to distinguish parallel block with same id.
             platform::RecordThread rt(static_cast<int>(place_idx) + 1);
             framework::Executor executor(place);
+	    platform::set_cur_thread_id(static_cast<int>(place_idx) + 1);
             executor.Run(*program, cur_scope, block->ID(),
                          false /*create_local_scope*/);
           }));
@@ -246,6 +248,7 @@ class ParallelDoGradOp : public framework::OperatorBase {
           framework::Async([program, cur_scope, place, block, i] {
             // Give the thread an id to distinguish parallel block with same id.
             platform::RecordThread rt(static_cast<int>(i) + 1);
+	    platform::set_cur_thread_id(static_cast<int>(i) + 1);
             framework::Executor executor(place);
             executor.Run(*program, cur_scope, block->ID(),
                          false /*create_local_scope*/);

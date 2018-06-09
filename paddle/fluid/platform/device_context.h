@@ -14,6 +14,8 @@ limitations under the License. */
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <thread>
+#include <mutex>
 
 #ifdef PADDLE_WITH_CUDA
 #include "paddle/fluid/platform/dynload/cublas.h"
@@ -34,6 +36,12 @@ limitations under the License. */
 
 namespace paddle {
 namespace platform {
+
+using KeyBlob = std::unordered_map<std::string, std::shared_ptr<void>>;
+using BlobMap = std::unordered_map<int, std::shared_ptr<KeyBlob>>;
+
+void set_cur_thread_id(int);
+int get_cur_thread_id(void);
 
 class DeviceContext {
  public:
@@ -160,8 +168,8 @@ class MKLDNNDeviceContext : public CPUDeviceContext {
 
  private:
   mkldnn::engine engine_;
-  std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<void>>>
-      p_blobs_;
+  std::shared_ptr<BlobMap> p_blobmap_;
+  std::shared_ptr<std::mutex> p_mutex_;
 };
 #endif
 
