@@ -147,10 +147,18 @@ void TransDataLayoutFromMKLDNN(const OpKernelType& kernel_type_for_var,
                  "Input tensor type is not supported: ", in.type().name());
   memory::data_type out_type = in_type;
 
-  memory::format in_format =
-      in_tz.size() == 2 ? memory::format::nc : in.format();
-  memory::format out_format =
-      out_tz.size() == 2 ? memory::format::nc : ToMKLDNNFormat(out_layout);
+  // Paddle don't recognize those low dimension format like x/nc
+  // which may cause mismatch between dims and format
+  memory::format in_format = in.format();
+  memory::format out_format = ToMKLDNNFormat(out_layout);
+  if (in_tz.size() == 1) {
+    in_format = memory::format::x;
+    out_format = memory::format::x;
+  }
+  if (out_tz.size() == 2) {
+    in_format = memory::format::nc;
+    out_format = memory::format::nc;
+  }
 
   void* in_data = GetDataFromTensor(in, in_type);
 
@@ -161,7 +169,7 @@ void TransDataLayoutFromMKLDNN(const OpKernelType& kernel_type_for_var,
 
   auto in_memory = memory({{{in_tz}, in_type, in_format}, cpu_engine}, in_data);
   auto out_memory =
-      memory({{{out_tz}, out_type, out_format}, cpu_engine}, out_data);
+        memory({{{out_tz}, out_type, out_format}, cpu_engine}, out_data);
 
   platform::Reorder(in_memory, out_memory);
 
