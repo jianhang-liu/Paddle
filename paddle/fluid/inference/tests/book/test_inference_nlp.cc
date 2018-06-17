@@ -20,7 +20,7 @@ limitations under the License. */
 #include "gtest/gtest.h"
 #include "paddle/fluid/inference/tests/test_helper.h"
 #ifdef PADDLE_WITH_MKLML
-#include <mkl_service.h>
+#include "paddle/fluid/platform/dynload/mklml.h"
 #include <omp.h>
 #endif
 
@@ -163,7 +163,7 @@ TEST(inference, nlp) {
   // only use 1 thread number per std::thread
   omp_set_dynamic(0);
   omp_set_num_threads(1);
-  mkl_set_num_threads(1);
+  paddle::platform::dynload::MKL_Set_Num_Threads(1);
 #endif
 
   double start_ms = 0, stop_ms = 0;

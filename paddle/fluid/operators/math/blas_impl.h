@@ -26,35 +26,51 @@ template <>
 struct CBlas<float> {
   template <typename... ARGS>
   static void GEMM(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_sgemm(args...);
+#else
     cblas_sgemm(args...);
+#endif
   }
 
   template <typename... ARGS>
   static void AXPY(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_saxpy(args...);
+#else
     cblas_saxpy(args...);
+#endif
   }
 
 #ifdef PADDLE_WITH_MKLML
   template <typename... ARGS>
   static void VADD(ARGS... args) {
-    vsAdd(args...);
+    platform::dynload::vsAdd(args...);
   }
 #endif
 
   template <typename... ARGS>
   static void VCOPY(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_scopy(args...);
+#else
     cblas_scopy(args...);
+#endif
   }
 
   template <typename... ARGS>
   static void GEMV(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_sgemv(args...);
+#else
     cblas_sgemv(args...);
+#endif
   }
 
 #ifdef PADDLE_WITH_MKLML
   template <typename... ARGS>
   static void GEMM_BATCH(ARGS... args) {
-    cblas_sgemm_batch(args...);
+    platform::dynload::cblas_sgemm_batch(args...);
   }
 #endif
 };
@@ -63,35 +79,51 @@ template <>
 struct CBlas<double> {
   template <typename... ARGS>
   static void GEMM(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_dgemm(args...);
+#else
     cblas_dgemm(args...);
+#endif
   }
 
   template <typename... ARGS>
   static void AXPY(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_daxpy(args...);
+#else
     cblas_daxpy(args...);
+#endif
   }
 
 #ifdef PADDLE_WITH_MKLML
   template <typename... ARGS>
   static void VADD(ARGS... args) {
-    vdAdd(args...);
+    platform::dynload::vdAdd(args...);
   }
 #endif
 
   template <typename... ARGS>
   static void VCOPY(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_dcopy(args...);
+#else
     cblas_dcopy(args...);
+#endif
   }
 
   template <typename... ARGS>
   static void GEMV(ARGS... args) {
+#ifdef PADDLE_WITH_MKLML
+    platform::dynload::cblas_dgemv(args...);
+#else
     cblas_dgemv(args...);
+#endif
   }
 
 #ifdef PADDLE_WITH_MKLML
   template <typename... ARGS>
   static void GEMM_BATCH(ARGS... args) {
-    cblas_dgemm_batch(args...);
+    platform::dynload::cblas_dgemm_batch(args...);
   }
 #endif
 };
