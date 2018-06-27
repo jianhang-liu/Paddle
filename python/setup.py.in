@@ -71,6 +71,10 @@ packages=['paddle',
           'paddle.fluid.layers',
           'paddle.fluid.transpiler',
           'paddle.fluid.transpiler.details']
+if '${WITH_MKL}'== 'ON':
+    packages+=['mklml']
+if '${WITH_MKLDNN}'== 'ON':
+    packages+=['mkldnn']
 
 if '${WITH_FLUID_ONLY}'== 'OFF':
     packages+=['paddle.proto',
@@ -99,6 +103,11 @@ if '${WITH_FLUID_ONLY}'== 'OFF':
                    '${PADDLE_BINARY_DIR}/paddle/scripts/paddle']
 
 package_data={'paddle.fluid': ['core.so']}
+if '${WITH_MKL}'== 'ON':
+    package_data['mklml']=['libmklml_intel.so','libiomp5.so']
+if '${WITH_MKLDNN}'== 'ON':
+    package_data['mkldnn']=['libmkldnn.so']
+
 if '${WITH_FLUID_ONLY}'== 'OFF':
     package_data['paddle.v2.master']=['libpaddle_master.so']
     package_data['py_paddle']=['*.py','_swig_paddle.so']
@@ -110,6 +119,8 @@ package_dir={
     'paddle.fluid.proto.profiler': '${PADDLE_BINARY_DIR}/paddle/fluid/platform',
     'paddle.fluid.proto': '${PADDLE_BINARY_DIR}/paddle/fluid/framework',
     'paddle.fluid': '${PADDLE_BINARY_DIR}/python/paddle/fluid',
+    'mklml': '${PADDLE_BINARY_DIR}/third_party/install/mklml/lib',
+    'mkldnn': '${PADDLE_BINARY_DIR}/third_party/install/mkldnn/lib',
 }
 if '${WITH_FLUID_ONLY}'== 'OFF':
     package_dir['py_paddle']='${PADDLE_BINARY_DIR}/python/py_paddle'
@@ -117,8 +128,6 @@ if '${WITH_FLUID_ONLY}'== 'OFF':
 
 paddle_rt_lib_dir = 'lib'
 paddle_rt_libs = ['${WARPCTC_LIBRARIES}']
-if '${MKL_SHARED_LIBS}'!= '':
-  paddle_rt_libs += '${MKL_SHARED_LIBS}'.split(';')
 
 setup(name='${PACKAGE_NAME}',
       version='${PADDLE_VERSION}',
