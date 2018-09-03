@@ -72,7 +72,7 @@ bool AnalysisPredictor::Init(
 
 void AnalysisPredictor::OptimizeInferenceProgram() {
   LOG(INFO) << "optimize begin";
-  FLAGS_IA_enable_ir = true;
+  FLAGS_IA_enable_ir = config_.enable_ir_optim;
   FLAGS_IA_enable_tensorrt_subgraph_engine = false;
   FLAGS_IA_output_storage_path = "";  // Don't output the model.
   // Analyze inference_program
@@ -92,8 +92,6 @@ void AnalysisPredictor::OptimizeInferenceProgram() {
   Analyzer().Run(&argument_);
   CHECK(argument_.transformed_program_desc);
   VLOG(5) << "to prepare executor";
-  // LOG(INFO) << "transformed_parogram_desc " <<
-  // argument.transformed_program_desc->DebugString();
   inference_program_.reset(
       new framework::ProgramDesc(*argument_.transformed_program_desc));
   PADDLE_ENFORCE(argument_.Has(framework::ir::kParamScopeAttr));
@@ -105,8 +103,8 @@ void AnalysisPredictor::OptimizeInferenceProgram() {
 
 template <>
 std::unique_ptr<PaddlePredictor> CreatePaddlePredictor<
-    NativeConfig, PaddleEngineKind::kAnalysis>(const NativeConfig& config) {
-  VLOG(3) << "create NativePredictor";
+    AnalysisConfig, PaddleEngineKind::kAnalysis>(const AnalysisConfig& config) {
+  VLOG(3) << "create AnalysisConfig";
   if (config.use_gpu) {
     // 1. GPU memeroy
     PADDLE_ENFORCE_GT(

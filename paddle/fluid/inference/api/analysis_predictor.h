@@ -28,7 +28,7 @@ using framework::proto::ProgramDesc;
  */
 class AnalysisPredictor : public NativePaddlePredictor {
  public:
-  explicit AnalysisPredictor(const NativeConfig& config)
+  explicit AnalysisPredictor(const AnalysisConfig& config)
       : NativePaddlePredictor(config), config_(config) {}
 
   bool Init(const std::shared_ptr<framework::Scope>& parent_scope);
@@ -44,7 +44,7 @@ class AnalysisPredictor : public NativePaddlePredictor {
   Argument& analysis_argument() { return argument_; }
 
  private:
-  NativeConfig config_;
+  AnalysisConfig config_;
   Argument argument_;
 };
 

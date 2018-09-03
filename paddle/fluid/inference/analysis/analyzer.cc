@@ -43,9 +43,8 @@ class DfgPassManagerImpl final : public DfgPassManager {
     // TODO(Superjomn) set the key with pass reprs.
     LOG(INFO)
         << "-----------------------------------------------------------------";
-    if (FLAGS_IA_enable_ir) {
-      AddPass("fluid-to-ir-pass", new FluidToIrPass);
-    } else {
+    AddPass("fluid-to-ir-pass", new FluidToIrPass);
+    if (!FLAGS_IA_enable_ir) {
       AddPass("fluid-to-data-flow-graph", new FluidToDataFlowGraphPass);
     }
     TryAddTensorRtPass();
