@@ -17,11 +17,15 @@
 #include <gtest/gtest.h>
 #include "paddle/fluid/framework/ir/pass.h"
 #include "paddle/fluid/inference/api/paddle_inference_api.h"
+#include "paddle/fluid/platform/profiler.h"
+
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(infer_data, "", "Path of the dataset.");
 DEFINE_int32(batch_size, 1, "batch size.");
 DEFINE_int32(repeat, 1, "How many times to repeat run.");
+DEFINE_int32(profiler, 2, "Enable profiler");
+DEFINE_bool(enable_ir, false, "Enable fusion or not");
 
 namespace paddle {
 
@@ -54,12 +58,19 @@ void Main(int batch_size) {
   AnalysisConfig config;
   config.model_dir = FLAGS_infer_model;
   config.use_gpu = false;
-  config.enable_ir_optim = true;
+  config.enable_ir_optim = FLAGS_enable_ir;
   auto predictor =
       CreatePaddlePredictor<AnalysisConfig, PaddleEngineKind::kAnalysis>(
           config);
 
   std::vector<PaddleTensor> output_slots;
+  if (FLAGS_profiler ==1){
+      // Profile the performance
+      paddle::platform::ProfilerState state;
+      state = paddle::platform::ProfilerState::kCPU;
+      // Enable the profiler
+      paddle::platform::EnableProfiler(state);
+  }
   for (int i = 0; i < FLAGS_repeat; i++) {
     CHECK(predictor->Run(input_slots, &output_slots));
   }
@@ -77,6 +88,11 @@ void Main(int batch_size) {
     LOG(INFO) << "output.data summary: " << ss.str();
   }
   // one batch ends
+  if (FLAGS_profiler == 1){
+      paddle::platform::DisableProfiler(
+         paddle::platform::EventSortingKey::kTotal, "run_inference_profiler");
+      paddle::platform::ResetProfiler();
+  }
 }
 
 TEST(text_classification, basic) { Main(FLAGS_batch_size); }
