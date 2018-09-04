@@ -51,7 +51,26 @@ class Analyzer : public OrderedRegistry<PassManager> {
 
   void Run(Argument* argument);
 
+  Analyzer& DisableIrPasses(const std::vector<std::string>& passes);
+
   DISABLE_COPY_AND_ASSIGN(Analyzer);
+
+ private:
+  // All avaiable IR passes.
+  // The bigger fuse comes first, so that the small operators prefer to be
+  // merged in a larger fuse op. The small fusion will not break the pattern of
+  // larger fusion.
+  const std::vector<std::string> all_ir_passes_{{
+      // Manual update the passes here.
+      "infer_clean_graph_pass",    //
+      "attention_lstm_fuse_pass",  //
+      "fc_lstm_fuse_pass",         //
+      "mul_lstm_fuse_pass",        //
+      "seq_concat_fc_fuse_pass",   //
+      "fc_fuse_pass",              //
+  }};
+
+  std::unordered_set<std::string> disabled_ir_passes_;
 };
 
 }  // namespace analysis

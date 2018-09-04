@@ -73,7 +73,6 @@ void PDPattern::AddEdge(PDNode* a, PDNode* b) {
 void GraphPatternDetector::operator()(Graph* graph,
                                       GraphPatternDetector::handle_t handler) {
   if (!MarkPDNodesInGraph(*graph)) {
-    LOG(INFO) << "Mark failed";
     return;
   }
 
@@ -109,6 +108,11 @@ bool GraphPatternDetector::MarkPDNodesInGraph(const ir::Graph& graph) {
       VLOG(4) << pdnode->name() << " can't find matched Node, early stop";
 
       return false;
+    }
+  }
+  for (auto& item : pdnodes2nodes_) {
+    for (auto& n : item.second) {
+      GetMarkedNodes(const_cast<Graph*>(&graph)).insert(n);
     }
   }
   VLOG(3) << pdnodes2nodes_.size() << " nodes marked";
@@ -278,7 +282,7 @@ void GraphPatternDetector::RemoveOverlappedMatch(
   for (const auto& subgraph : *subgraphs) {
     bool valid = true;
     for (auto& item : subgraph) {
-      if (node_set.count(item.second)) {
+      if (item.first->IsIntermediate() && node_set.count(item.second)) {
         valid = false;
         break;
       }
@@ -491,14 +495,16 @@ void GraphSafeRemoveNodes(Graph* graph,
     for (auto it = node->inputs.begin(); it != node->inputs.end();) {
       if (nodes.count(*it)) {
         it = const_cast<Node*>(node)->inputs.erase(it);
-      } else
+      } else {
         it++;
+      }
     }
     for (auto it = node->outputs.begin(); it != node->outputs.end();) {
       if (nodes.count(*it)) {
         it = const_cast<Node*>(node)->outputs.erase(it);
-      } else
+      } else {
         it++;
+      }
     }
   }
 }

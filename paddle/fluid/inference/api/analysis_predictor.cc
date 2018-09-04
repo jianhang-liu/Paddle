@@ -27,6 +27,8 @@ bool AnalysisPredictor::Init(
   VLOG(3) << "Predictor::init()";
   if (config_.use_gpu) {
     place_ = paddle::platform::CUDAPlace(config_.device);
+    LOG(WARNING) << "ir optimize only supports CPU currently";
+    config_.enable_ir_optim = false;
   } else {
     place_ = paddle::platform::CPUPlace();
   }
@@ -89,16 +91,20 @@ void AnalysisPredictor::OptimizeInferenceProgram() {
   }
   argument_.origin_program_desc.reset(
       new ProgramDesc(*inference_program_->Proto()));
-  Analyzer().Run(&argument_);
+  PADDLE_ENFORCE(config_.ir_mode == AnalysisConfig::IrPassMode::kExclude,
+                 "Only kExclude is supported yet.");
+  Analyzer().DisableIrPasses(config_.ir_passes).Run(&argument_);
+
   CHECK(argument_.transformed_program_desc);
   VLOG(5) << "to prepare executor";
   inference_program_.reset(
       new framework::ProgramDesc(*argument_.transformed_program_desc));
-  PADDLE_ENFORCE(argument_.Has(framework::ir::kParamScopeAttr));
-  // Update scope.
-  scope_.reset(
-      argument_.Release<framework::Scope>(framework::ir::kParamScopeAttr));
-  LOG(INFO) << "optimize end ==";
+  if (argument_.Has(framework::ir::kParamScopeAttr)) {
+    // Update scope.
+    scope_.reset(
+        argument_.Release<framework::Scope>(framework::ir::kParamScopeAttr));
+  }
+  LOG(INFO) << "== optimize end ==";
 }
 
 template <>
