@@ -12,18 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/framework/ir/fc_lstm_fuse_pass.h"
+#include "paddle/fluid/framework/ir/fc_gru_fuse_pass.h"
 #include <string>
 #include "paddle/fluid/framework/lod_tensor.h"
 
 namespace paddle {
 namespace framework {
 namespace ir {
-
-static std::string GenNodeName(const std::string& prefix,
-                               const std::string& name) {
-  return prefix + "/" + name;
-}
 
 static void BuildPattern(PDPattern* pattern, const std::string& name_scope,
                          bool with_fc_bias) {
@@ -32,8 +27,8 @@ static void BuildPattern(PDPattern* pattern, const std::string& name_scope,
                   ->assert_var_not_persistable();
   auto* fc_out = patterns::FC(pattern, name_scope, x, with_fc_bias);
   fc_out->AsIntermediate();  // fc_out is a tmp var, will be removed after fuse.
-  patterns::LSTM(pattern, name_scope, fc_out);
-  // LOG(INFO) << "\n" << pattern->DotString();
+  patterns::GRU(pattern, name_scope, fc_out);
+  VLOG(3) << "\n" << pattern->DotString();
 }
 
 static int BuildFusion(Graph* graph, const std::string& name_scope,
@@ -44,22 +39,20 @@ static int BuildFusion(Graph* graph, const std::string& name_scope,
   BuildPattern(pattern, name_scope, with_fc_bias);
 
   // Create New OpDesc
-  auto lstm_creator = [&](int lstm, int input, int weight_x, int weight_h,
-                          int bias, int hidden, int cell, int xx, int fc_bias) {
+  auto gru_creater = [&](int gru, int x, int weight_x, int weight_h, int bias,
+                         int hidden, int fc_bias) {
 #define GET_NODE(x) auto* x##_n = graph->RetriveNode(x);
-    GET_NODE(input);
+    GET_NODE(x);
     GET_NODE(weight_x);
     GET_NODE(weight_h);
     GET_NODE(bias);
     GET_NODE(hidden);
-    GET_NODE(cell);
-    GET_NODE(xx);
-    GET_NODE(lstm);
+    GET_NODE(gru);
 
     OpDesc op_desc;
-    op_desc.SetType("fusion_lstm");
+    op_desc.SetType("fusion_gru");
 #define SET_IN(Key, node__) op_desc.SetInput(#Key, {node__##_n->Name()});
-    SET_IN(X, input);
+    SET_IN(X, x);
     SET_IN(WeightX, weight_x);
     SET_IN(WeightH, weight_h);
     SET_IN(Bias, bias);
@@ -71,76 +64,58 @@ static int BuildFusion(Graph* graph, const std::string& name_scope,
       auto* bias_var = scope->Var(new_bias_var);
       PADDLE_ENFORCE(bias_var);
       auto* bias_tensor = bias_var->GetMutable<framework::LoDTensor>();
-      auto* lstm_bias_var = scope->FindVar(bias_n->Name());
-      PADDLE_ENFORCE(lstm_bias_var);
-      const auto& lstm_bias_tensor = lstm_bias_var->Get<framework::LoDTensor>();
-      bias_tensor->Resize(lstm_bias_tensor.dims());
+      auto* gru_bias_var = scope->FindVar(bias_n->Name());
+      PADDLE_ENFORCE(gru_bias_var);
+      const auto& gru_bias_tenosr = gru_bias_var->Get<framework::LoDTensor>();
+      bias_tensor->Resize(gru_bias_tenosr.dims());
 
       GET_NODE(fc_bias);
       auto* fc_bias_var = scope->FindVar(fc_bias_n->Name());
       const auto& fc_bias_tensor = fc_bias_var->Get<framework::LoDTensor>();
-
+      // new bias = fc bias + gru bias
       auto* data = bias_tensor->mutable_data<float>(platform::CPUPlace());
-
       for (int i = 0; i < bias_tensor->numel(); i++) {
         data[i] =
-            fc_bias_tensor.data<float>()[i] + lstm_bias_tensor.data<float>()[i];
+            fc_bias_tensor.data<float>()[i] + gru_bias_tenosr.data<float>()[i];
       }
       op_desc.SetInput("Bias", {new_bias_var});
     }
 #undef GET_NODE
 
-    // Create temp variables.
-    scope->Var(name_scope + "/BatchedInput.new")
-        ->GetMutable<framework::LoDTensor>();
-    scope->Var(name_scope + "/BatchCellPreAct.new")
-        ->GetMutable<framework::LoDTensor>();
-    scope->Var(name_scope + "/BatchedGate.new")
-        ->GetMutable<framework::LoDTensor>();
-
     op_desc.SetInput("H0", {});
-    op_desc.SetInput("C0", {});
     op_desc.SetOutput("Hidden", {hidden_n->Name()});
-    op_desc.SetOutput("Cell", {cell_n->Name()});
-    op_desc.SetOutput("XX", {xx_n->Name()});
-    op_desc.SetOutput("BatchedGate", {name_scope + "/BatchedGate.new"});
-    op_desc.SetOutput("BatchCellPreAct", {name_scope + "/BatchCellPreAct.new"});
-    op_desc.SetOutput("BatchedInput", {name_scope + "/BatchedInput.new"});
-    op_desc.SetAttr("is_reverse", lstm_n->Op()->GetAttr("is_reverse"));
-    op_desc.SetAttr("use_peepholes", lstm_n->Op()->GetAttr("use_peepholes"));
-    // TODO(TJ): get from attr
+    op_desc.SetAttr("is_reverse", gru_n->Op()->GetAttr("is_reverse"));
+    // TODO(TJ): This should be a option for infer
     op_desc.SetAttr("use_seq", true);
 
-#define TMP_NAME(x) "at.new.tmp." #x
-#define OP_SET_OUT(x) op_desc.SetOutput(#x, {TMP_NAME(x)})
-    OP_SET_OUT(BatchedCell);
-    OP_SET_OUT(BatchedHidden);
-    OP_SET_OUT(ReorderedH0);
-    OP_SET_OUT(ReorderedC0);
-#undef OP_SET_OUT
+    // Create temp variables.
+    // TODO(TJ): clean code
+    scope->Var(name_scope + "/ReorderedH0.new")
+        ->GetMutable<framework::LoDTensor>();
+    scope->Var(name_scope + "/XX.new")->GetMutable<framework::LoDTensor>();
+    scope->Var(name_scope + "/BatchedInput.new")
+        ->GetMutable<framework::LoDTensor>();
+    scope->Var(name_scope + "/BatchedOut.new")
+        ->GetMutable<framework::LoDTensor>();
+    op_desc.SetOutput("ReorderedH0", {name_scope + "/ReorderedH0.new"});
+    op_desc.SetOutput("XX", {name_scope + "/XX.new"});
+    op_desc.SetOutput("BatchedInput", {name_scope + "/BatchedInput.new"});
+    op_desc.SetOutput("BatchedOut", {name_scope + "/BatchedOut.new"});
 
     auto* op = graph->CreateOpNode(&op_desc);
     PADDLE_ENFORCE(graph->Has(kParamScopeAttr));
-    auto* scope = graph->Get<Scope*>(kParamScopeAttr);
+    // auto* scope = graph->Get<Scope*>(kParamScopeAttr);
 
-#define TMP_NEW(x) scope->Var(TMP_NAME(x))->GetMutable<LoDTensor>()
-    TMP_NEW(BatchedCell);
-    TMP_NEW(BatchedHidden);
-    TMP_NEW(ReorderedH0);
-    TMP_NEW(ReorderedC0);
-#undef TMP_NEW
-#undef TMP_NAME
-
-    IR_NODE_LINK_TO(input_n, op);
+    IR_NODE_LINK_TO(x_n, op);
     IR_NODE_LINK_TO(weight_x_n, op);
     IR_NODE_LINK_TO(weight_h_n, op);
     IR_NODE_LINK_TO(bias_n, op);
     IR_NODE_LINK_TO(op, hidden_n);
+    // h0?
     return op;
   };
 
   int fusion_count{0};
-
   auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
                      Graph* g) {
 #define GET_NODE(name__)                                \
@@ -156,23 +131,22 @@ static int BuildFusion(Graph* graph, const std::string& name_scope,
     GET_NODE(mul);
     GET_NODE(fc_out);
     GET_NODE(Weight);
-    GET_NODE(lstm);
+    GET_NODE(gru);
     GET_NODE(Bias);
     GET_NODE(Hidden);
-    GET_NODE(Cell);
 
     if (with_fc_bias) {
       GET_NODE(fc_bias);
       GET_NODE(elementwise_add);
-      lstm_creator(lstm, x, w, Weight, Bias, Hidden, Cell, fc_out, fc_bias);
+      gru_creater(gru, x, w, Weight, Bias, Hidden, fc_bias);
       // Remove unneeded nodes.
       std::unordered_set<const Node*> marked_nodes(
-          {mul_n, lstm_n, elementwise_add_n});
+          {mul_n, gru_n, elementwise_add_n});
       GraphSafeRemoveNodes(graph, marked_nodes);
     } else {
-      lstm_creator(lstm, x, w, Weight, Bias, Hidden, Cell, fc_out, -1);
+      gru_creater(gru, x, w, Weight, Bias, Hidden, -1);
       // Remove unneeded nodes.
-      std::unordered_set<const Node*> marked_nodes({mul_n, lstm_n});
+      std::unordered_set<const Node*> marked_nodes({mul_n, gru_n});
       GraphSafeRemoveNodes(graph, marked_nodes);
     }
 #undef GET_NODE
@@ -185,7 +159,7 @@ static int BuildFusion(Graph* graph, const std::string& name_scope,
   return fusion_count;
 }
 
-std::unique_ptr<ir::Graph> MulLstmFusePass::ApplyImpl(
+std::unique_ptr<ir::Graph> MulGRUFusePass::ApplyImpl(
     std::unique_ptr<ir::Graph> graph) const {
   FusePassBase::Init(name_scope_, graph.get());
 
@@ -196,7 +170,7 @@ std::unique_ptr<ir::Graph> MulLstmFusePass::ApplyImpl(
   return graph;
 }
 
-std::unique_ptr<ir::Graph> FCLstmFusePass::ApplyImpl(
+std::unique_ptr<ir::Graph> FCGRUFusePass::ApplyImpl(
     std::unique_ptr<ir::Graph> graph) const {
   FusePassBase::Init(name_scope_, graph.get());
 
@@ -211,5 +185,5 @@ std::unique_ptr<ir::Graph> FCLstmFusePass::ApplyImpl(
 }  // namespace framework
 }  // namespace paddle
 
-REGISTER_PASS(mul_lstm_fuse_pass, paddle::framework::ir::MulLstmFusePass);
-REGISTER_PASS(fc_lstm_fuse_pass, paddle::framework::ir::FCLstmFusePass);
+REGISTER_PASS(mul_gru_fuse_pass, paddle::framework::ir::MulGRUFusePass);
+REGISTER_PASS(fc_gru_fuse_pass, paddle::framework::ir::FCGRUFusePass);
