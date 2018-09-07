@@ -25,6 +25,7 @@ DEFINE_string(infer_model, "", "model path");
 DEFINE_string(infer_data, "", "data path");
 DEFINE_int32(batch_size, 10, "batch size.");
 DEFINE_int32(repeat, 1, "Running the inference program repeat times.");
+DEFINE_bool(enable_ir, true, "Enable IR passes");
 
 namespace paddle {
 namespace inference {
@@ -110,15 +111,16 @@ const int chinese_ner_result_data[] = {30, 45, 41, 48, 17, 26,
                                        48, 39, 38, 16, 25};
 
 void TestChineseNERPrediction() {
-  NativeConfig config;
+  AnalysisConfig config;
   config.prog_file = FLAGS_infer_model + "/__model__";
   config.param_file = FLAGS_infer_model + "/param";
   config.use_gpu = false;
   config.device = 0;
   config.specify_input_name = true;
+  config.enable_ir_optim = FLAGS_enable_ir;
 
   auto predictor =
-      CreatePaddlePredictor<NativeConfig, PaddleEngineKind::kNative>(config);
+      CreatePaddlePredictor<AnalysisConfig, PaddleEngineKind::kAnalysis>(config);
   std::vector<PaddleTensor> input_slots;
   DataRecord data(FLAGS_infer_data, FLAGS_batch_size);
   // Prepare inputs.
