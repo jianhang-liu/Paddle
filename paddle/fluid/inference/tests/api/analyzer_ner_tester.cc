@@ -128,7 +128,7 @@ void TestChineseNERPrediction(bool use_analysis) {
       input_slots_all.emplace_back(input_slots);
     }
     LOG(INFO) << "total number of samples: " << data.num_samples;
-    TestPrediction(cfg, input_slots_all, &outputs, FLAGS_num_threads);
+    TestPrediction(cfg, input_slots_all, &outputs, FLAGS_num_threads, true);
     return;
   }
   // Prepare inputs.

@@ -141,7 +141,8 @@ void TestLACPrediction(const std::string &model_path,
       input_slots_all.emplace_back(input_slots);
     }
     LOG(INFO) << "total number of samples: " << data.datasets.size();
-    TestPrediction(cfg, input_slots_all, &outputs_slots, FLAGS_num_threads);
+    TestPrediction(cfg, input_slots_all, &outputs_slots, FLAGS_num_threads,
+                   true);
     return;
   }
   timer.tic();

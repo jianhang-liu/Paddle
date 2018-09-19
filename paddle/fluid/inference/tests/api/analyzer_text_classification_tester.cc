@@ -66,7 +66,8 @@ void Main(int batch_size) {
       ++num_batches;
     }
     LOG(INFO) << "total number of samples: " << num_batches * FLAGS_batch_size;
-    TestPrediction(config, input_slots_all, &output_slots, FLAGS_num_threads);
+    TestPrediction(config, input_slots_all, &output_slots, FLAGS_num_threads,
+                   true);
     return;
   }
 
@@ -74,7 +75,8 @@ void Main(int batch_size) {
   // data --
   reader.NextBatch(&input_slots, FLAGS_batch_size);
   input_slots_all.emplace_back(input_slots);
-  TestPrediction(config, input_slots_all, &output_slots, FLAGS_num_threads);
+  TestPrediction(config, input_slots_all, &output_slots, FLAGS_num_threads,
+                 true);
 
   // Get output
   LOG(INFO) << "get outputs " << output_slots.size();

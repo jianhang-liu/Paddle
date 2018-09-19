@@ -111,7 +111,7 @@ void TestMultiThreadPrediction(
           CreatePaddlePredictor<AnalysisConfig, PaddleEngineKind::kAnalysis>(
               config));
     }
-  } else { // clone and share parameter.
+  } else {  // clone and share parameter.
     for (int tid = 0; tid < num_threads; ++tid) {
       predictors.emplace_back(parent_predictor->Clone());
     }
@@ -145,11 +145,12 @@ void TestMultiThreadPrediction(
 
 void TestPrediction(AnalysisConfig config,
                     const std::vector<std::vector<PaddleTensor>> inputs,
-                    std::vector<PaddleTensor> *outputs, int num_threads) {
+                    std::vector<PaddleTensor> *outputs, int num_threads,
+                    bool use_clone = false) {
   if (num_threads == 1) {
     TestOneThreadPrediction(config, inputs, outputs);
   } else {
-    TestMultiThreadPrediction(config, inputs, outputs, num_threads);
+    TestMultiThreadPrediction(config, inputs, outputs, num_threads, use_clone);
   }
 }
 
