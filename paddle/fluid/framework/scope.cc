@@ -36,6 +36,8 @@ DEFINE_double(
     "Memory size threshold (GB) when the garbage collector clear tensors."
     "Disabled when this value is less than 0");
 
+#define WITH_LOCK 0
+
 namespace paddle {
 namespace framework {
 
@@ -49,18 +51,24 @@ int64_t GetEagerDeletionThreshold() {
 Scope::~Scope() { DropKids(); }
 
 Scope& Scope::NewScope() const {
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   kids_.push_back(new Scope(this));
   return *kids_.back();
 }
 
 Variable* Scope::Var(const std::string& name) {
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   return VarInternal(name);
 }
 
 Variable* Scope::Var(std::string* name) {
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   auto new_name = string::Sprintf("%p.%d", this, vars_.size());
   if (name != nullptr) {
     *name = new_name;
@@ -69,29 +77,38 @@ Variable* Scope::Var(std::string* name) {
 }
 
 Variable* Scope::FindVar(const std::string& name) const {
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   return FindVarInternal(name);
 }
 
 const Scope* Scope::FindScope(const Variable* var) const {
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   return FindScopeInternal(var);
 }
 
 void Scope::DropKids() {
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   for (Scope* s : kids_) delete s;
   kids_.clear();
 }
 
 bool Scope::HasKid(const Scope* scope) const {
-  std::unique_lock<std::mutex> lock(mutex_);
+  // std::unique_lock<std::mutex> lock(mutex_);
   auto it = std::find(this->kids_.begin(), this->kids_.end(), scope);
   return it != this->kids_.end();
 }
 
 std::vector<std::string> Scope::LocalVarNames() const {
+// std::unique_lock<std::mutex> lock(mutex_);
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   std::vector<std::string> known_vars;
   known_vars.reserve(this->vars_.size());
   for (auto& p : vars_) {
@@ -101,7 +118,10 @@ std::vector<std::string> Scope::LocalVarNames() const {
 }
 
 void Scope::DeleteScope(Scope* scope) const {
+// std::unique_lock<std::mutex> lock(mutex_);
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   auto it = std::find(this->kids_.begin(), this->kids_.end(), scope);
   PADDLE_ENFORCE(it != this->kids_.end(), "Cannot find %p as kid scope", scope);
   this->kids_.erase(it);
@@ -114,7 +134,10 @@ void Scope::DeleteScope(Scope* scope) const {
 }
 
 void Scope::EraseVars(const std::vector<std::string>& var_names) {
+// std::unique_lock<std::mutex> lock(mutex_);
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   std::set<std::string> var_set(var_names.begin(), var_names.end());
   for (auto it = vars_.begin(); it != vars_.end();) {
     if (var_set.find(it->first) != var_set.end()) {
@@ -127,12 +150,18 @@ void Scope::EraseVars(const std::vector<std::string>& var_names) {
 
 void Scope::Rename(const std::string& origin_name,
                    const std::string& new_name) const {
+// std::unique_lock<std::mutex> lock(mutex_);
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   RenameInternal(origin_name, new_name);
 }
 
 std::string Scope::Rename(const std::string& origin_name) const {
+// std::unique_lock<std::mutex> lock(mutex_);
+#if WITH_LOCK
   std::unique_lock<std::mutex> lock(mutex_);
+#endif
   auto new_name = string::Sprintf("%p.%d", this, vars_.size());
   RenameInternal(origin_name, new_name);
   return new_name;

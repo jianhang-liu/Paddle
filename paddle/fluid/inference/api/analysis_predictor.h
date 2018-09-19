@@ -33,7 +33,9 @@ class AnalysisPredictor : public NativePaddlePredictor {
   explicit AnalysisPredictor(const AnalysisConfig& config)
       : NativePaddlePredictor(config), config_(config) {}
 
-  bool Init(const std::shared_ptr<framework::Scope>& parent_scope);
+  // Inherit scope and program desc if needed.
+  bool Init(const std::shared_ptr<framework::Scope>& parent_scope,
+            framework::ProgramDesc* param);
 
   bool Run(const std::vector<PaddleTensor>& inputs,
            std::vector<PaddleTensor>* output_data,
@@ -44,6 +46,8 @@ class AnalysisPredictor : public NativePaddlePredictor {
   void OptimizeInferenceProgram();
 
   Argument& analysis_argument() { return argument_; }
+
+  std::unique_ptr<PaddlePredictor> Clone() override;
 
  private:
   AnalysisConfig config_;

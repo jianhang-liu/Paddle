@@ -182,7 +182,7 @@ void TestRNN1Prediction(bool use_analysis, bool activate_ir, int num_threads) {
     CompareResult(outputs, base_outputs);
   } else {
     // only return the output of first thread
-    TestMultiThreadPrediction(config, input_slots_all, &outputs, num_threads);
+    TestMultiThreadPrediction(config, input_slots_all, &outputs, num_threads, true);
   }
 
   if (use_analysis && activate_ir) {

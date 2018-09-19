@@ -29,7 +29,8 @@ DECLARE_bool(profile);
 namespace paddle {
 
 bool AnalysisPredictor::Init(
-    const std::shared_ptr<framework::Scope>& parent_scope) {
+    const std::shared_ptr<framework::Scope>& parent_scope,
+    framework::ProgramDesc* program = nullptr) {
   VLOG(3) << "Predictor::init()";
 #if !defined(_WIN32)
   if (FLAGS_profile) {
@@ -58,24 +59,28 @@ bool AnalysisPredictor::Init(
 
   executor_.reset(new paddle::framework::Executor(place_));
 
-  // Initialize the inference program
-  if (!config_.model_dir.empty()) {
-    // Parameters are saved in separate files sited in
-    // the specified `dirname`.
-    inference_program_ = paddle::inference::Load(executor_.get(), scope_.get(),
-                                                 config_.model_dir);
-  } else if (!config_.prog_file.empty() && !config_.param_file.empty()) {
-    // All parameters are saved in a single file.
-    // The file names should be consistent with that used
-    // in Python API `fluid.io.save_inference_model`.
-    inference_program_ = paddle::inference::Load(
-        executor_.get(), scope_.get(), config_.prog_file, config_.param_file);
-  } else {
-    LOG(ERROR) << "fail to load inference model.";
-    return false;
-  }
+  if (!program) {
+    // Initialize the inference program
+    if (!config_.model_dir.empty()) {
+      // Parameters are saved in separate files sited in
+      // the specified `dirname`.
+      inference_program_ = paddle::inference::Load(
+          executor_.get(), scope_.get(), config_.model_dir);
+    } else if (!config_.prog_file.empty() && !config_.param_file.empty()) {
+      // All parameters are saved in a single file.
+      // The file names should be consistent with that used
+      // in Python API `fluid.io.save_inference_model`.
+      inference_program_ = paddle::inference::Load(
+          executor_.get(), scope_.get(), config_.prog_file, config_.param_file);
+    } else {
+      LOG(ERROR) << "fail to load inference model.";
+      return false;
+    }
 
-  OptimizeInferenceProgram();
+    OptimizeInferenceProgram();
+  } else {
+    inference_program_.reset(program);
+  }
   ctx_ = executor_->Prepare(*inference_program_, 0);
   if (config_._use_mkldnn) {
     executor_->EnableMKLDNN(*inference_program_);
@@ -152,6 +157,24 @@ std::unique_ptr<PaddlePredictor> CreatePaddlePredictor<
     return nullptr;
   }
   return predictor;
+}
+
+std::unique_ptr<PaddlePredictor> AnalysisPredictor::Clone() {
+  VLOG(3) << "Predictor::clone";
+  std::unique_ptr<PaddlePredictor> cls(new AnalysisPredictor(config_));
+
+  auto* program = new framework::ProgramDesc(*inference_program_->Proto());
+  if (!dynamic_cast<AnalysisPredictor*>(cls.get())->Init(scope_, program)) {
+    LOG(ERROR) << "fail to call Init";
+    return nullptr;
+  }
+#ifdef __clang__
+  // fix clang compile error
+  return cls;
+#else
+  // fix manylinux compile error.
+  return std::move(cls);
+#endif
 }
 
 }  // namespace paddle
