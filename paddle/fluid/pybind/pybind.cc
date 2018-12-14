@@ -336,6 +336,8 @@ PYBIND11_MODULE(core, m) {
       .def("get_tensor",
            [](SelectedRows &self) { return self.mutable_value(); },
            py::return_value_policy::reference)
+      .def("numel",
+           [](SelectedRows &self) -> int64_t { return self.value().numel(); })
       .def("set_height", &SelectedRows::set_height)
       .def("height", &SelectedRows::height)
       .def("set_rows",
@@ -925,6 +927,18 @@ All parameter, weight, gradient are variables in Paddle.
           [](BuildStrategy &self, int num_trainers) {
             self.num_trainers_ = num_trainers;
           })
+      .def_property(
+          "trainers_endpoints",
+          [](const BuildStrategy &self) { return self.trainers_endpoints_; },
+          [](BuildStrategy &self,
+             const std::vector<std::string> &trainers_endpoints) {
+            self.trainers_endpoints_ = trainers_endpoints;
+          })
+      .def_property("trainer_id",
+                    [](const BuildStrategy &self) { return self.trainer_id_; },
+                    [](BuildStrategy &self, int trainer_id) {
+                      self.trainer_id_ = trainer_id;
+                    })
       .def_property(
           "fuse_elewise_add_act_ops",
           [](const BuildStrategy &self) {
