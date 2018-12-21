@@ -60,9 +60,12 @@ class TransposeMKLDNNOpKernel : public paddle::framework::OpKernel<T> {
             ? platform::MKLDNNMemDesc(nchw_tz, platform::MKLDNNGetDataType<T>(),
                                       input->format())
             : Axis2MemoryDesc(nchw_tz, nchw_axis);
+    auto dst_md = Axis2MemoryDesc(nchw_tz, axis);
 
-    this->TransposeKernel(ctx.GetPlace(), Axis2MemoryDesc(nchw_tz, axis),
-                          src_md, output, input_data, nchw_tz, mkldnn_engine);
+    this->TransposeKernel(ctx.GetPlace(), dst_md, src_md, output, input_data,
+                          nchw_tz, mkldnn_engine);
+    output->set_layout(DataLayout::kNCHW);
+    output->set_format(mkldnn::memory::format::format_undef);
   }
 
  protected:
