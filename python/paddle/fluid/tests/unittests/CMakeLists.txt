@@ -21,6 +21,8 @@ if(NOT WITH_DISTRIBUTE)
     LIST(REMOVE_ITEM TEST_OPS test_dist_simnet_bow)
     LIST(REMOVE_ITEM TEST_OPS test_dist_mnist_batch_merge)
     LIST(REMOVE_ITEM TEST_OPS test_dist_text_classification)
+    LIST(REMOVE_ITEM TEST_OPS test_nce_remote_table_op)
+    LIST(REMOVE_ITEM TEST_OPS test_hsigmoid_remote_table_op)
 endif(NOT WITH_DISTRIBUTE)
 
 if (NOT ${WITH_GPU})
@@ -32,7 +34,6 @@ endif()
 list(REMOVE_ITEM TEST_OPS test_seq_concat_op) # FIXME(helin): https://github.com/PaddlePaddle/Paddle/issues/8290
 list(REMOVE_ITEM TEST_OPS test_modified_huber_loss_op) # FIXME(qijun) https://github.com/PaddlePaddle/Paddle/issues/5184
 list(REMOVE_ITEM TEST_OPS test_lstm_unit_op) # # FIXME(qijun) https://github.com/PaddlePaddle/Paddle/issues/5185
-list(REMOVE_ITEM TEST_OPS test_nce) # FIXME(qijun) https://github.com/PaddlePaddle/Paddle/issues/7778
 list(REMOVE_ITEM TEST_OPS test_recurrent_op) # FIXME(qijun) https://github.com/PaddlePaddle/Paddle/issues/6152
 list(REMOVE_ITEM TEST_OPS test_cond_op) # FIXME(qijun): https://github.com/PaddlePaddle/Paddle/issues/5101#issuecomment-339814957
 
@@ -106,7 +107,7 @@ if(WITH_DISTRIBUTE)
 endif()
 py_test_modules(test_parallel_executor_crf MODULES test_parallel_executor_crf SERIAL)
 py_test_modules(test_parallel_executor_fetch_feed MODULES test_parallel_executor_fetch_feed SERIAL)
-set_tests_properties(test_parallel_executor_fetch_feed PROPERTIES TIMEOUT 150)
+set_tests_properties(test_parallel_executor_fetch_feed PROPERTIES TIMEOUT 450)
 py_test_modules(test_parallel_executor_transformer MODULES test_parallel_executor_transformer SERIAL)
 if(NOT APPLE)
     py_test_modules(test_image_classification_resnet MODULES test_image_classification_resnet SERIAL)
