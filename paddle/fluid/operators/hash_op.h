@@ -15,8 +15,6 @@ limitations under the License. */
 #pragma once
 
 extern "C" {
-#define XXH_INLINE_ALL
-#define XXH_FORCE_MEMORY_ACCESS 1
 #include <xxhash.h>
 }
 #include "paddle/fluid/framework/eigen.h"
