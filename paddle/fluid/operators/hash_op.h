@@ -43,17 +43,25 @@ class HashKerel : public framework::OpKernel<T> {
     auto seq_length = in_dims[0];
     auto last_dim = in_dims[in_dims.size() - 1];
     auto* input = in_t->data<T>();
-    const int hsize = sizeof(int) * last_dim;
+    const int buf_len = sizeof(int) * last_dim;
+    libdivide::divider<T> fast_d(static_cast<T>(mod_by));
     for (int idx = 0; idx < seq_length; ++idx) {
-      for (int ihash = 0; ihash != num_hash; ++ihash) {
-        output[idx * num_hash + ihash] = XXH64(input, hsize, ihash);
+      for (int ihash = 0; ihash < num_hash; ihash += 4) {
+        __m256i vhash;
+        T h1, h2, h3, h4;
+        h1 = XXH64(input, buf_len, ihash);
+        h2 = XXH64(input, buf_len, ihash + 1);
+        h3 = XXH64(input, buf_len, ihash + 2);
+        h4 = XXH64(input, buf_len, ihash + 3);
+        h1 = h1 - (h1 / fast_d) * mod_by;
+        h2 = h2 - (h2 / fast_d) * mod_by;
+        h3 = h3 - (h3 / fast_d) * mod_by;
+        h4 = h4 - (h4 / fast_d) * mod_by;
+        vhash = _mm256_set_epi64x(h4, h3, h2, h1);
+        _mm256_stream_si256((__m256i*)&output[idx * num_hash + ihash],
+                            (__m256i)vhash);
       }
       input += last_dim;
-    }
-
-    libdivide::divider<T> fast_d(static_cast<T>(mod_by));
-    for (int idx = 0; idx < seq_length * num_hash; ++idx) {
-      output[idx] = output[idx] - (output[idx] / fast_d) * mod_by;
     }
   }
 };
