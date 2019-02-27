@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #pragma once
+#include <libdivide.h>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -110,10 +111,32 @@ class FusedEnumHashEmdPoolKernel : public framework::OpKernel<T> {
           hash_out[win_idx].mutable_data<int64_t>(context.GetPlace());
       auto *input = enum_out_data;
       auto last_dim = win_size[win_idx];
+      auto this_mod_by = mod_by[win_idx];
+      libdivide::divider<int64_t> fast_d(static_cast<int64_t>(this_mod_by));
+      auto this_num_hash = num_hash[win_idx];
+      const int buf_len = sizeof(int) * last_dim;
       for (int idx = 0; idx < seq_length; ++idx) {
+        /*
         for (int ihash = 0; ihash != num_hash[win_idx]; ++ihash) {
           hash_out_data[idx * num_hash[win_idx] + ihash] =
               XXH64(input, sizeof(int) * last_dim, ihash) % mod_by[win_idx];
+        }
+        */
+        for (int ihash = 0; ihash < this_num_hash; ihash += 4) {
+          __m256i vhash;
+          int64_t h1, h2, h3, h4;
+          h1 = XXH64(input, buf_len, ihash);
+          h2 = XXH64(input, buf_len, ihash + 1);
+          h3 = XXH64(input, buf_len, ihash + 2);
+          h4 = XXH64(input, buf_len, ihash + 3);
+          h1 = h1 - (h1 / fast_d) * this_mod_by;
+          h2 = h2 - (h2 / fast_d) * this_mod_by;
+          h3 = h3 - (h3 / fast_d) * this_mod_by;
+          h4 = h4 - (h4 / fast_d) * this_mod_by;
+          vhash = _mm256_set_epi64x(h4, h3, h2, h1);
+          _mm256_stream_si256(
+              (__m256i *)&hash_out_data[idx * this_num_hash + ihash],
+              (__m256i)vhash);
         }
         input += max_win_size;
       }
