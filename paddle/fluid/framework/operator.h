@@ -71,6 +71,14 @@ constexpr char kNewGradSuffix[] = "@NEWGRAD@";
 constexpr char kAllKernelsMustComputeRuntimeShape[] =
     "@ALL_KERNELS_MUST_COMPUTE_RUNTIME_SHAPE@";
 
+/// RuntimeContext is used to relate input/output names of Operator with
+/// the corresponding variables in Scope.
+/// If an Op has attribute kEnableRuntimeContext, it means that in a same Scope,
+/// since the input/output names of this Op do not change in the execution,
+/// RuntimeContext could be created only at the first iteration of this Op's
+/// execution to save the elapsed time.
+constexpr char kEnableRuntimeContext[] = "@ENABLE_RUNTIME_CONTEXT@";
+
 // define some kernel priority
 /* Define multiple kernel type fallback order*/
 extern std::vector<std::tuple<platform::Place, LibraryType>> kKernelPriority;
@@ -474,6 +482,8 @@ class OperatorWithKernel : public OperatorBase {
 
  protected:
   mutable OpKernelConfigsMap kernel_configs_map_;
+  mutable std::unique_ptr<RuntimeContext> runtime_ctx_;
+  mutable const Scope* pre_scope_ = nullptr;
 };
 
 extern bool OpSupportGPU(const std::string& op_type);
