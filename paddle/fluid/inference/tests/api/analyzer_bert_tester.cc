@@ -164,6 +164,10 @@ void profile(bool use_mkldnn = false) {
   SetConfig(&config);
 
   if (use_mkldnn) {
+    // Enable specified ops for MKLDNN
+    std::unordered_set<std::string> op_list = {"transpose2"};
+    config.SetMKLDNNOp(op_list);
+    config.SwitchIrDebug();
     config.EnableMKLDNN();
   }
 
@@ -195,6 +199,9 @@ void compare(bool use_mkldnn = false) {
   AnalysisConfig cfg;
   SetConfig(&cfg);
   if (use_mkldnn) {
+    // Enable specified ops for MKLDNN
+    std::unordered_set<std::string> op_list = {"transpose2"};
+    cfg.SetMKLDNNOp(op_list);
     cfg.EnableMKLDNN();
   }
 
