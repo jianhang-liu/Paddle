@@ -480,10 +480,15 @@ class OperatorWithKernel : public OperatorBase {
                                const std::vector<std::string>& inplace_vars,
                                const Scope& exec_scope) const;
 
+  void ChooseKernel(const RuntimeContext& ctx, const Scope& scope,
+                    const platform::Place& place) const;
+
  protected:
   mutable OpKernelConfigsMap kernel_configs_map_;
   mutable std::unique_ptr<RuntimeContext> runtime_ctx_;
   mutable const Scope* pre_scope_ = nullptr;
+  mutable std::unique_ptr<OpKernelType> kernel_type_;
+  mutable std::unique_ptr<OpKernelFunc> kernel_func_;
 };
 
 extern bool OpSupportGPU(const std::string& op_type);
