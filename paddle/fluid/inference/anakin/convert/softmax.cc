@@ -14,26 +14,30 @@
 
 #include "paddle/fluid/inference/anakin/convert/softmax.h"
 
-using anakin::graph::GraphGlobalMem;
-using anakin::AK_FLOAT;
-using anakin::saber::NV;
-using anakin::saber::Shape;
-
 namespace paddle {
 namespace inference {
 namespace anakin {
 
-void SoftMaxOpConverter::operator()(const framework::proto::OpDesc &op,
-                                    const framework::Scope &scope,
-                                    bool test_mode) {
+template <typename TargetT, ::anakin::Precision PrecisionT>
+void SoftMaxOpConverter<TargetT, PrecisionT>::operator()(
+    const framework::proto::OpDesc &op, const framework::BlockDesc &block_desc,
+    const framework::Scope &scope, bool test_mode) {
   framework::OpDesc op_desc(op, nullptr);
   PADDLE_ENFORCE_EQ(op_desc.Input("X").size(), 1UL);
 
   auto input = op_desc.Input("X").front();
   auto output = op_desc.Output("Out").front();
   auto op_name = op_desc.Type() + ":" + op_desc.Output("Out").front();
-  engine_->AddOp(op_name, "Softmax", {input}, {output});
-  engine_->AddOpAttr(op_name, "axis", 2);
+
+  auto input_var_desc = block_desc.FindVar(input);
+  PADDLE_ENFORCE(input_var_desc,
+                 "Cant find %s variable When runing Anakin Softmax converter.",
+                 input);
+  auto input_shape_in_fluid = input_var_desc->GetShape();
+  size_t input_dims = input_shape_in_fluid.size();
+
+  this->engine_->AddOp(op_name, "Softmax", {input}, {output});
+  this->engine_->AddOpAttr(op_name, "axis", static_cast<int>(input_dims - 1));
 }
 
 }  // namespace anakin

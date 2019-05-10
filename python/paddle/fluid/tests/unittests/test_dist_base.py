@@ -27,6 +27,9 @@ import numpy as np
 
 import paddle.fluid as fluid
 from paddle.fluid import compiler
+import paddle.fluid.dygraph as dygraph
+from paddle.fluid.dygraph.base import to_variable
+from paddle.fluid.dygraph.parallel import DataParallel
 
 RUN_STEP = 10
 DEFAULT_BATCH_SIZE = 2
@@ -52,13 +55,14 @@ class TestDistRunnerBase(object):
         # NOTE: import fluid until runtime, or else forking processes will cause error.
         config = fluid.DistributeTranspilerConfig()
         config.enable_dc_asgd = dc_asgd
+        config.sync_mode = sync_mode
+        # config.runtime_split_send_recv = True
         t = fluid.DistributeTranspiler(config=config)
         t.transpile(
             trainer_id=trainer_id,
             program=main_program,
             pservers=pserver_endpoints,
             trainers=trainers,
-            sync_mode=sync_mode,
             current_endpoint=current_endpoint)
         return t
 
@@ -139,8 +143,7 @@ class TestDistRunnerBase(object):
         pass_builder = None
         if args.batch_merge_repeat > 1:
             pass_builder = build_stra._finalize_strategy_and_create_passes()
-            mypass = pass_builder.insert_pass(
-                len(pass_builder.all_passes()) - 3, "multi_batch_merge_pass")
+            mypass = pass_builder.insert_pass(0, "multi_batch_merge_pass")
             mypass.set("num_repeats", args.batch_merge_repeat)
 
         if args.update_method == "nccl2" or args.update_method == "nccl2_reduce_layer":
@@ -185,6 +188,68 @@ class TestDistRunnerBase(object):
             print(pickle.dumps(out_losses))
         else:
             sys.stdout.buffer.write(pickle.dumps(out_losses))
+
+
+class TestParallelDyGraphRunnerBase(object):
+    def get_model(self):
+        raise NotImplementedError(
+            "get_model should be implemented by child classes.")
+
+    def run_one_loop(self, model, opt, data):
+        raise NotImplementedError(
+            "train_one_loop should be implemented by the child classes.")
+
+    def run_trainer(self, args):
+        seed = 90
+        device_id = int(os.getenv("FLAGS_selected_gpus", "0"))
+        place = fluid.CUDAPlace(device_id)
+
+        def _get_data(batch):
+            if args.update_method != "local":
+                new_batch = []
+                for offset, item in enumerate(batch):
+                    if offset % 2 == args.trainer_id:
+                        new_batch.append(item)
+                return new_batch
+            else:
+                return batch
+
+        with fluid.dygraph.guard(place):
+            fluid.default_startup_program().random_seed = seed
+            fluid.default_main_program().random_seed = seed
+            model, train_reader, opt = self.get_model()
+
+            nranks = len(args.endpoints.split(",")) if args.endpoints else 1
+            if args.update_method == "nccl2":
+                sys.stderr.write("")
+                model = dygraph.parallel.DataParallel(model)
+                strategy = dygraph.parallel.ParallelStrategy()
+                strategy.nranks = nranks
+                strategy.local_rank = args.trainer_id
+                strategy.trainer_endpoints = args.endpoints.split(",")
+                strategy.current_endpoint = args.current_endpoint
+                dygraph.parallel.prepare_context(strategy)
+            out_losses = []
+            for step_id, data in enumerate(train_reader()):
+                data = _get_data(data)
+                if step_id == RUN_STEP:
+                    break
+                loss = self.run_one_loop(model, opt, data)
+
+                # FIXME(Yancey1989): scale the loss inplace 
+                loss.stop_gradient = True
+                loss_scale = to_variable(np.array([nranks]).astype("float32"))
+                loss = loss / loss_scale
+
+                out_losses.append(loss.numpy())
+                loss.backward()
+
+                opt.minimize(loss)
+                model.clear_gradients()
+            if six.PY2:
+                print(pickle.dumps(out_losses))
+            else:
+                sys.stdout.buffer.write(pickle.dumps(out_losses))
 
 
 def runtime_main(test_class):
@@ -275,6 +340,7 @@ class TestDistBase(unittest.TestCase):
         self._nccl2_reduce_layer = False
         self._lr = 0.001
         self._use_dgc = False
+        self._dygraph = False
         self._setup_config()
         self._after_setup_config()
 
@@ -597,6 +663,9 @@ class TestDistBase(unittest.TestCase):
             local_loss = local_losses[step_id]
             tr0_loss = tr0_losses[step_id]
             tr1_loss = tr1_losses[step_id]
-            dist_loss = (np.array([tr0_loss]) + np.array([tr1_loss])) / 2
+            dist_loss = (np.array([tr0_loss]) + np.array([tr1_loss]))
+            if not self._dygraph:
+                # Parallel DyGraph already scaled the loss in training
+                dist_loss = dist_loss / 2
             print("=======", local_loss, ":", dist_loss[0], "=======")
             self.assertAlmostEqual(local_loss, dist_loss[0], delta=delta)

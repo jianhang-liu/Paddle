@@ -20,11 +20,14 @@ namespace paddle {
 namespace inference {
 namespace anakin {
 
-class ElementwiseAddOpConverter : public AnakinOpConverter {
+template <typename TargetT, ::anakin::Precision PrecisionT>
+class ElementwiseAddOpConverter
+    : public AnakinOpConverter<TargetT, PrecisionT> {
  public:
   ElementwiseAddOpConverter() = default;
 
   virtual void operator()(const framework::proto::OpDesc &op,
+                          const framework::BlockDesc &block_desc,
                           const framework::Scope &scope,
                           bool test_mode) override;
   virtual ~ElementwiseAddOpConverter() {}
@@ -32,11 +35,14 @@ class ElementwiseAddOpConverter : public AnakinOpConverter {
  private:
 };
 
-class ElementwiseMulOpConverter : public AnakinOpConverter {
+template <typename TargetT, ::anakin::Precision PrecisionT>
+class ElementwiseMulOpConverter
+    : public AnakinOpConverter<TargetT, PrecisionT> {
  public:
   ElementwiseMulOpConverter() = default;
 
   virtual void operator()(const framework::proto::OpDesc &op,
+                          const framework::BlockDesc &block_desc,
                           const framework::Scope &scope,
                           bool test_mode) override;
   virtual ~ElementwiseMulOpConverter() {}

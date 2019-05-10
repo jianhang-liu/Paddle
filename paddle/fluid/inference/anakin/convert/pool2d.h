@@ -20,11 +20,13 @@ namespace paddle {
 namespace inference {
 namespace anakin {
 
-class Pool2dOpConverter : public AnakinOpConverter {
+template <typename TargetT, ::anakin::Precision PrecisionT>
+class Pool2dOpConverter : public AnakinOpConverter<TargetT, PrecisionT> {
  public:
   Pool2dOpConverter() = default;
 
   virtual void operator()(const framework::proto::OpDesc &op,
+                          const framework::BlockDesc &block_desc,
                           const framework::Scope &scope,
                           bool test_mode) override;
   virtual ~Pool2dOpConverter() {}

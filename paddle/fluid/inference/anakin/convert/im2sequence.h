@@ -20,11 +20,13 @@ namespace paddle {
 namespace inference {
 namespace anakin {
 
-class Im2SequenceConverter : public AnakinOpConverter {
+template <typename TargetT, ::anakin::Precision PrecisionT>
+class Im2SequenceConverter : public AnakinOpConverter<TargetT, PrecisionT> {
  public:
   Im2SequenceConverter() = default;
 
   virtual void operator()(const framework::proto::OpDesc &op,
+                          const framework::BlockDesc &block_desc,
                           const framework::Scope &scope,
                           bool test_mode) override;
   virtual ~Im2SequenceConverter() {}

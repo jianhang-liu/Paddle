@@ -20,11 +20,13 @@ namespace paddle {
 namespace inference {
 namespace anakin {
 
-class ReshapeOpConverter : public AnakinOpConverter {
+template <typename TargetT, ::anakin::Precision PrecisionT>
+class ReshapeOpConverter : public AnakinOpConverter<TargetT, PrecisionT> {
  public:
   ReshapeOpConverter() = default;
 
   virtual void operator()(const framework::proto::OpDesc &op,
+                          const framework::BlockDesc &block_desc,
                           const framework::Scope &scope,
                           bool test_mode) override;
   virtual ~ReshapeOpConverter() {}

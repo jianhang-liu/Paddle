@@ -45,13 +45,12 @@ cc_library(cpu_helper SRCS cpu_helper.cc DEPS cblas enforce)
 cc_test(cpu_helper_test SRCS cpu_helper_test.cc DEPS cpu_helper)
 
 set(dgc_deps "")
+IF(WITH_DGC)
+    set(dgc_deps dgc)
+ENDIF()
+
 IF(WITH_GPU)
     set(GPU_CTX_DEPS dynload_cuda dynamic_loader)
-    if(NOT WIN32)
-        set(dgc_deps dgc)
-    endif()
-ELSE()
-    set(dgc_deps)
 ENDIF()
 
 IF(WITH_MKLDNN)
@@ -92,6 +91,9 @@ nv_test(transform_test SRCS transform_test.cu DEPS memory place device_context)
 
 cc_library(timer SRCS timer.cc)
 cc_test(timer_test SRCS timer_test.cc DEPS timer)
+
+cc_library(lodtensor_printer SRCS lodtensor_printer.cc DEPS ddim place tensor scope lod_tensor variable_helper framework_proto)
+cc_test(lodtensor_printer_test SRCS lodtensor_printer_test.cc DEPS lodtensor_printer)
 
 cc_library(device_tracer SRCS device_tracer.cc DEPS boost profiler_proto framework_proto ${GPU_CTX_DEPS})
 if(WITH_GPU)

@@ -22,11 +22,13 @@ namespace paddle {
 namespace inference {
 namespace anakin {
 
-class ScaleOpConverter : public AnakinOpConverter {
+template <typename TargetT, ::anakin::Precision PrecisionT>
+class ScaleOpConverter : public AnakinOpConverter<TargetT, PrecisionT> {
  public:
   ScaleOpConverter() = default;
 
   virtual void operator()(const framework::proto::OpDesc &op,
+                          const framework::BlockDesc &block_desc,
                           const framework::Scope &scope,
                           bool test_mode) override;
   virtual ~ScaleOpConverter() {}
