@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "paddle/fluid/memory/allocation/retry_allocator.h"
-#include "paddle/fluid/memory/allocation/allocation_with_underlying.h"
 namespace paddle {
 namespace memory {
 namespace allocation {
@@ -24,9 +23,9 @@ void RetryAllocator::FreeImpl(Allocation* allocation) {
   cv_.notify_all();
 }
 
-Allocation* RetryAllocator::AllocateImpl(size_t size, Allocator::Attr attr) {
+Allocation* RetryAllocator::AllocateImpl(size_t size) {
   auto alloc_func = [&, this]() {
-    return underlying_allocator_->Allocate(size, attr).release();
+    return underlying_allocator_->Allocate(size).release();
   };
   // In fact, we can unify the code of allocation success and failure
   // But it would add lock even when allocation success at the first time

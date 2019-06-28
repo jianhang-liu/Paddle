@@ -16,7 +16,6 @@
 #include <algorithm>
 #include <limits>
 #include <utility>
-#include "paddle/fluid/memory/allocation/allocation_with_underlying.h"
 
 namespace paddle {
 namespace memory {
@@ -54,7 +53,7 @@ void BufferedAllocator::FreeImpl(Allocation *allocation) {
   allocations_.emplace(allocation->size(), AllocationPtr(allocation));
 }
 
-Allocation *BufferedAllocator::AllocateImpl(size_t size, Allocator::Attr attr) {
+Allocation *BufferedAllocator::AllocateImpl(size_t size) {
   {
     platform::LockGuardPtr<std::mutex> guard(mtx_);
     auto it = allocations_.lower_bound(size);
@@ -66,10 +65,10 @@ Allocation *BufferedAllocator::AllocateImpl(size_t size, Allocator::Attr attr) {
   }
 
   try {
-    return underlying_allocator_->Allocate(size, attr).release();
+    return underlying_allocator_->Allocate(size).release();
   } catch (BadAlloc &) {
     FreeCache(size);
-    return underlying_allocator_->Allocate(size, attr).release();
+    return underlying_allocator_->Allocate(size).release();
   }
 }
 
